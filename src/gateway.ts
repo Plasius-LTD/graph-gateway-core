@@ -14,6 +14,7 @@ import {
   DEFAULT_HARD_TTL_SECONDS,
   DEFAULT_SCHEMA_VERSION,
   DEFAULT_SOFT_TTL_SECONDS,
+  isGraphQuery,
 } from "@plasius/graph-contracts";
 
 export interface CircuitBreakerHooks {
@@ -32,6 +33,9 @@ export interface GraphGatewayOptions {
   timeoutMs?: number;
   retryAttempts?: number;
   retryBudgetMs?: number;
+  retryBackoffMs?: number;
+  retryJitterRatio?: number;
+  random?: () => number;
   maxFanout?: number;
   circuitBreaker?: CircuitBreakerHooks;
 }
@@ -63,6 +67,9 @@ export class GraphGateway {
   private readonly timeoutMs: number;
   private readonly retryAttempts: number;
   private readonly retryBudgetMs: number;
+  private readonly retryBackoffMs: number;
+  private readonly retryJitterRatio: number;
+  private readonly random: () => number;
   private readonly maxFanout: number;
   private readonly circuitBreaker?: CircuitBreakerHooks;
 
@@ -79,11 +86,18 @@ export class GraphGateway {
     this.timeoutMs = options.timeoutMs ?? 2_000;
     this.retryAttempts = Math.max(1, options.retryAttempts ?? 2);
     this.retryBudgetMs = Math.max(this.timeoutMs, options.retryBudgetMs ?? this.timeoutMs * this.retryAttempts);
+    this.retryBackoffMs = Math.max(0, options.retryBackoffMs ?? 20);
+    this.retryJitterRatio = Math.min(1, Math.max(0, options.retryJitterRatio ?? 0.2));
+    this.random = options.random ?? (() => Math.random());
     this.maxFanout = Math.max(1, options.maxFanout ?? 4);
     this.circuitBreaker = options.circuitBreaker;
   }
 
   public async execute(query: GraphQuery): Promise<GraphQueryResult> {
+    if (!isGraphQuery(query)) {
+      throw new Error("Invalid graph query payload");
+    }
+
     const started = this.now();
     const results: GraphQueryResult["results"] = {};
     const errors: GraphQueryResult["errors"] = [];
@@ -178,6 +192,28 @@ export class GraphGateway {
         if (error instanceof CircuitOpenError) {
           throw error;
         }
+
+        if (attempt < this.retryAttempts) {
+          const elapsedMs = this.now() - started;
+          const remainingBudgetMs = this.retryBudgetMs - elapsedMs;
+          const backoffMs = this.calculateBackoffMs(attempt);
+          if (remainingBudgetMs <= backoffMs) {
+            break;
+          }
+
+          if (backoffMs > 0) {
+            this.telemetry?.metric({
+              name: "graph.resolve.backoff_ms",
+              value: backoffMs,
+              unit: "ms",
+              tags: {
+                resolver: request.resolver,
+                attempt: String(attempt),
+              },
+            });
+            await this.wait(backoffMs);
+          }
+        }
       }
     }
 
@@ -232,6 +268,27 @@ export class GraphGateway {
     }
 
     return "upstream";
+  }
+
+  private calculateBackoffMs(attempt: number): number {
+    if (this.retryBackoffMs <= 0) {
+      return 0;
+    }
+
+    const baseDelay = this.retryBackoffMs * 2 ** Math.max(0, attempt - 1);
+    const jitterAmplitude = Math.floor(baseDelay * this.retryJitterRatio);
+    if (jitterAmplitude <= 0) {
+      return baseDelay;
+    }
+
+    const jitter = Math.floor(this.random() * (jitterAmplitude + 1));
+    return baseDelay + jitter;
+  }
+
+  private async wait(delayMs: number): Promise<void> {
+    await new Promise((resolve) => {
+      setTimeout(resolve, delayMs);
+    });
   }
 
   private async executeRequest(request: ResolverRequest, traceId: string | undefined, started: number): Promise<ExecutedRequest> {

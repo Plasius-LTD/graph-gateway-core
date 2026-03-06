@@ -94,6 +94,8 @@ npm run build
   - `timeoutMs`
   - `retryAttempts`
   - `retryBudgetMs`
+  - `retryBackoffMs`
+  - `retryJitterRatio`
 - Circuit breaker hooks:
   - `canRequest`
   - `onSuccess`
@@ -102,7 +104,9 @@ npm run build
   - `graph.execute.latency`
   - `graph.cache.outcome`
   - `graph.resolve.latency`
+  - `graph.resolve.backoff_ms`
   - `graph.upstream.error`
+- Runtime query payloads are validated at execution boundary (`isGraphQuery`).
 
 ---
 

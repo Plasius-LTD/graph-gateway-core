@@ -254,4 +254,49 @@ describe("GraphGateway", () => {
       }),
     );
   });
+
+  it("fails fast on invalid query payload", async () => {
+    const gateway = new GraphGateway({
+      resolver: {
+        async resolve() {
+          throw new Error("should not run");
+        },
+      },
+    });
+
+    await expect(
+      gateway.execute({
+        requests: "bad",
+      } as unknown as any),
+    ).rejects.toThrow("Invalid graph query payload");
+  });
+
+  it("applies bounded retry backoff with jitter metric emission", async () => {
+    const telemetry = {
+      metric: vi.fn(),
+      error: vi.fn(),
+      trace: vi.fn(),
+    };
+    const gateway = new GraphGateway({
+      resolver: {
+        async resolve() {
+          throw new Error("transient");
+        },
+      },
+      telemetry,
+      timeoutMs: 5,
+      retryAttempts: 2,
+      retryBudgetMs: 100,
+      retryBackoffMs: 1,
+      retryJitterRatio: 0,
+    });
+
+    await gateway.execute({
+      requests: [{ resolver: "user.profile", key: "user:1" }],
+    });
+
+    expect(telemetry.metric).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "graph.resolve.backoff_ms", value: 1 }),
+    );
+  });
 });

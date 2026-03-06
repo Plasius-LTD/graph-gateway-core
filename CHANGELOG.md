@@ -12,7 +12,9 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - Explicit fanout control with `maxFanout` query execution concurrency.
   - Circuit breaker hook contract (`canRequest`, `onSuccess`, `onFailure`).
   - Retry budget control (`retryBudgetMs`) for bounded retry behavior.
+  - Retry backoff + jitter controls (`retryBackoffMs`, `retryJitterRatio`).
   - Telemetry dimensions for cache outcome and upstream error categories.
+  - Fast-fail query payload validation at gateway boundary.
   - Tests for fanout limits, circuit breaker behavior, retry budget, and telemetry tags.
   - ADR-0003 for read orchestration resilience controls.
 
