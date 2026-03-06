@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { CacheEnvelope, CacheStore, ResolverRequest } from "@plasius/graph-contracts";
 import { GraphGateway } from "../src/gateway.js";
@@ -110,5 +110,148 @@ describe("GraphGateway", () => {
     expect(result.stale).toBe(true);
     expect(result.results["user:1"]?.data).toEqual({ name: "cached" });
     expect(result.errors[0]?.code).toBe("UPSTREAM_FAILED_STALE_SERVED");
+  });
+
+  it("limits resolver concurrency using max fanout controls", async () => {
+    let inFlight = 0;
+    let peakConcurrency = 0;
+
+    const resolver = {
+      async resolve(request: ResolverRequest) {
+        inFlight += 1;
+        peakConcurrency = Math.max(peakConcurrency, inFlight);
+        await new Promise((resolve) => {
+          setTimeout(resolve, 10);
+        });
+        inFlight -= 1;
+
+        return {
+          key: request.key,
+          data: { id: request.key },
+          stale: false,
+          tags: request.tags ?? [],
+        };
+      },
+    };
+
+    const gateway = new GraphGateway({
+      resolver,
+      maxFanout: 2,
+      timeoutMs: 100,
+    });
+
+    const result = await gateway.execute({
+      requests: [
+        { resolver: "profile", key: "1" },
+        { resolver: "profile", key: "2" },
+        { resolver: "profile", key: "3" },
+        { resolver: "profile", key: "4" },
+      ],
+    });
+
+    expect(result.partial).toBe(false);
+    expect(Object.keys(result.results)).toHaveLength(4);
+    expect(peakConcurrency).toBeLessThanOrEqual(2);
+  });
+
+  it("honors circuit breaker hooks before resolver calls", async () => {
+    const resolver = {
+      resolve: vi.fn(async (request: ResolverRequest) => ({
+        key: request.key,
+        data: { id: request.key },
+        stale: false,
+        tags: request.tags ?? [],
+      })),
+    };
+    const circuitBreaker = {
+      canRequest: vi.fn(async () => false),
+      onSuccess: vi.fn(),
+      onFailure: vi.fn(),
+    };
+
+    const gateway = new GraphGateway({
+      resolver,
+      timeoutMs: 10,
+      retryAttempts: 1,
+      circuitBreaker,
+    });
+
+    const result = await gateway.execute({
+      requests: [{ resolver: "user.profile", key: "user:1" }],
+    });
+
+    expect(result.partial).toBe(true);
+    expect(result.errors[0]?.code).toBe("UPSTREAM_FAILED");
+    expect(result.errors[0]?.message).toContain("Circuit open");
+    expect(resolver.resolve).not.toHaveBeenCalled();
+    expect(circuitBreaker.onSuccess).not.toHaveBeenCalled();
+    expect(circuitBreaker.onFailure).not.toHaveBeenCalled();
+  });
+
+  it("stops retrying when retry budget is exhausted", async () => {
+    const resolver = {
+      resolve: vi.fn(async (): Promise<never> => {
+        return await new Promise(() => {
+          // intentionally unresolved to force timeout
+        });
+      }),
+    };
+
+    const gateway = new GraphGateway({
+      resolver,
+      timeoutMs: 1,
+      retryAttempts: 5,
+      retryBudgetMs: 1,
+    });
+
+    const result = await gateway.execute({
+      requests: [{ resolver: "user.profile", key: "user:1" }],
+    });
+
+    expect(result.partial).toBe(true);
+    expect(result.errors[0]?.message).toContain("Resolver timeout");
+    expect(resolver.resolve).toHaveBeenCalledTimes(1);
+  });
+
+  it("emits cache outcome and upstream error telemetry categories", async () => {
+    const telemetry = {
+      metric: vi.fn(),
+      error: vi.fn(),
+      trace: vi.fn(),
+    };
+
+    const gateway = new GraphGateway({
+      resolver: {
+        async resolve() {
+          throw new Error("service unavailable");
+        },
+      },
+      telemetry,
+      retryAttempts: 1,
+      timeoutMs: 10,
+    });
+
+    await gateway.execute({
+      requests: [{ resolver: "user.profile", key: "user:1" }],
+    });
+
+    expect(telemetry.metric).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "graph.cache.outcome",
+        tags: expect.objectContaining({ outcome: "miss", resolver: "user.profile" }),
+      }),
+    );
+    expect(telemetry.metric).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "graph.upstream.error",
+        tags: expect.objectContaining({ category: "upstream", resolver: "user.profile" }),
+      }),
+    );
+    expect(telemetry.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: "UPSTREAM_FAILED",
+        tags: expect.objectContaining({ category: "upstream" }),
+      }),
+    );
   });
 });

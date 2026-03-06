@@ -56,6 +56,13 @@ const gateway = new GraphGateway({
       };
     },
   },
+  maxFanout: 8,
+  timeoutMs: 750,
+  retryAttempts: 2,
+  retryBudgetMs: 1_500,
+  circuitBreaker: {
+    canRequest: async (resolver) => resolver !== "disabled.resolver",
+  },
 });
 
 const result = await gateway.execute({
@@ -77,6 +84,25 @@ npm run typecheck
 npm run test:coverage
 npm run build
 ```
+
+---
+
+## Resilience and Observability
+
+- Query planning/fanout control via `maxFanout`.
+- Retry policy controls:
+  - `timeoutMs`
+  - `retryAttempts`
+  - `retryBudgetMs`
+- Circuit breaker hooks:
+  - `canRequest`
+  - `onSuccess`
+  - `onFailure`
+- Telemetry events:
+  - `graph.execute.latency`
+  - `graph.cache.outcome`
+  - `graph.resolve.latency`
+  - `graph.upstream.error`
 
 ---
 

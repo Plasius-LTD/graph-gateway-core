@@ -9,16 +9,21 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 ## [Unreleased]
 
 - **Added**
-  - (placeholder)
+  - Explicit fanout control with `maxFanout` query execution concurrency.
+  - Circuit breaker hook contract (`canRequest`, `onSuccess`, `onFailure`).
+  - Retry budget control (`retryBudgetMs`) for bounded retry behavior.
+  - Telemetry dimensions for cache outcome and upstream error categories.
+  - Tests for fanout limits, circuit breaker behavior, retry budget, and telemetry tags.
+  - ADR-0003 for read orchestration resilience controls.
 
 - **Changed**
-  - (placeholder)
+  - README now documents resilience and observability options.
 
 - **Fixed**
-  - (placeholder)
+  - N/A
 
 - **Security**
-  - (placeholder)
+  - N/A
 
 ## [0.1.1] - 2026-03-05
 
