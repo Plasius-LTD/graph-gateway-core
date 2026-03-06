@@ -9,6 +9,20 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 ## [Unreleased]
 
 - **Added**
+  - (placeholder)
+
+- **Changed**
+  - (placeholder)
+
+- **Fixed**
+  - (placeholder)
+
+- **Security**
+  - (placeholder)
+
+## [0.1.2] - 2026-03-06
+
+- **Added**
   - Explicit fanout control with `maxFanout` query execution concurrency.
   - Circuit breaker hook contract (`canRequest`, `onSuccess`, `onFailure`).
   - Retry budget control (`retryBudgetMs`) for bounded retry behavior.
@@ -37,3 +51,4 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 
 [0.1.1]: https://github.com/Plasius-LTD/graph-gateway-core/releases/tag/v0.1.1
+[0.1.2]: https://github.com/Plasius-LTD/graph-gateway-core/releases/tag/v0.1.2
