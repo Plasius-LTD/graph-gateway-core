@@ -1,6 +1,6 @@
 {
   "name": "@plasius/graph-gateway-core",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Read-path graph gateway orchestration core with resilience policies",
   "type": "module",
   "sideEffects": false,
