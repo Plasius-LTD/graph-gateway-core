@@ -35,9 +35,17 @@ export interface GraphGatewayOptions {
   retryBudgetMs?: number;
   retryBackoffMs?: number;
   retryJitterRatio?: number;
+  isRetryableError?: (error: unknown, context: GraphGatewayRetryDecisionContext) => boolean;
   random?: () => number;
   maxFanout?: number;
   circuitBreaker?: CircuitBreakerHooks;
+}
+
+export interface GraphGatewayRetryDecisionContext {
+  request: ResolverRequest;
+  attempt: number;
+  maxAttempts: number;
+  elapsedMs: number;
 }
 
 interface ExecutedRequest {
@@ -69,6 +77,10 @@ export class GraphGateway {
   private readonly retryBudgetMs: number;
   private readonly retryBackoffMs: number;
   private readonly retryJitterRatio: number;
+  private readonly isRetryableError: (
+    error: unknown,
+    context: GraphGatewayRetryDecisionContext,
+  ) => boolean;
   private readonly random: () => number;
   private readonly maxFanout: number;
   private readonly circuitBreaker?: CircuitBreakerHooks;
@@ -88,6 +100,7 @@ export class GraphGateway {
     this.retryBudgetMs = Math.max(this.timeoutMs, options.retryBudgetMs ?? this.timeoutMs * this.retryAttempts);
     this.retryBackoffMs = Math.max(0, options.retryBackoffMs ?? 20);
     this.retryJitterRatio = Math.min(1, Math.max(0, options.retryJitterRatio ?? 0.2));
+    this.isRetryableError = options.isRetryableError ?? (() => true);
     this.random = options.random ?? (() => Math.random());
     this.maxFanout = Math.max(1, options.maxFanout ?? 4);
     this.circuitBreaker = options.circuitBreaker;
@@ -179,27 +192,39 @@ export class GraphGateway {
       } catch (error) {
         lastError = error;
         await this.circuitBreaker?.onFailure?.(request.resolver, error);
-        this.telemetry?.metric({
-          name: "graph.resolve.retry",
-          value: 1,
-          unit: "count",
-          tags: {
-            resolver: request.resolver,
-            attempt: String(attempt),
-          },
-        });
 
         if (error instanceof CircuitOpenError) {
           throw error;
         }
 
+        const elapsedMs = this.now() - started;
+        const canRetry = this.isRetryableError(error, {
+          request,
+          attempt,
+          maxAttempts: this.retryAttempts,
+          elapsedMs,
+        });
+
+        if (!canRetry) {
+          break;
+        }
+
         if (attempt < this.retryAttempts) {
-          const elapsedMs = this.now() - started;
           const remainingBudgetMs = this.retryBudgetMs - elapsedMs;
           const backoffMs = this.calculateBackoffMs(attempt);
           if (remainingBudgetMs <= backoffMs) {
             break;
           }
+
+          this.telemetry?.metric({
+            name: "graph.resolve.retry",
+            value: 1,
+            unit: "count",
+            tags: {
+              resolver: request.resolver,
+              attempt: String(attempt),
+            },
+          });
 
           if (backoffMs > 0) {
             this.telemetry?.metric({
