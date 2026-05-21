@@ -60,6 +60,11 @@ const gateway = new GraphGateway({
   timeoutMs: 750,
   retryAttempts: 2,
   retryBudgetMs: 1_500,
+  isRetryableError: (error) =>
+    typeof error === "object" &&
+    error !== null &&
+    "retryable" in error &&
+    error.retryable === true,
   circuitBreaker: {
     canRequest: async (resolver) => resolver !== "disabled.resolver",
   },
@@ -96,6 +101,7 @@ npm run build
   - `retryBudgetMs`
   - `retryBackoffMs`
   - `retryJitterRatio`
+  - `isRetryableError` for transient-only retry enforcement when callers need to fail fast on non-retryable upstream errors
 - Circuit breaker hooks:
   - `canRequest`
   - `onSuccess`
@@ -107,6 +113,7 @@ npm run build
   - `graph.resolve.backoff_ms`
   - `graph.upstream.error`
 - Runtime query payloads are validated at execution boundary (`isGraphQuery`).
+- Default behavior remains backwards compatible: if `isRetryableError` is omitted, gateway retries continue to apply to resolver failures until the retry budget or attempt cap is exhausted.
 
 ---
 
