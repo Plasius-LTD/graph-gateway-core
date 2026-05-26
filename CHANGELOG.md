@@ -12,7 +12,7 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - (placeholder)
 
 - **Changed**
-  - (placeholder)
+  - Added opt-in `isRetryableError` support so callers can restrict GraphGateway retries to transient failures while keeping the existing retry-budget/backoff controls and backwards-compatible default behavior.
 
 - **Fixed**
   - (placeholder)
