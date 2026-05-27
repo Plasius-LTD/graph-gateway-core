@@ -299,4 +299,81 @@ describe("GraphGateway", () => {
       expect.objectContaining({ name: "graph.resolve.backoff_ms", value: 1 }),
     );
   });
+
+  it("retries transient failures when the caller marks them retryable", async () => {
+    const resolver = {
+      resolve: vi.fn(async (request: ResolverRequest) => {
+        if (resolver.resolve.mock.calls.length === 1) {
+          const error = new Error("temporary upstream failure");
+          Object.assign(error, { transient: true });
+          throw error;
+        }
+
+        return {
+          key: request.key,
+          data: { id: request.key },
+          stale: false,
+          tags: request.tags ?? [],
+        };
+      }),
+    };
+
+    const gateway = new GraphGateway({
+      resolver,
+      timeoutMs: 5,
+      retryAttempts: 2,
+      retryBudgetMs: 100,
+      retryBackoffMs: 0,
+      isRetryableError: (error) =>
+        typeof error === "object" && error !== null && "transient" in error,
+    });
+
+    const result = await gateway.execute({
+      requests: [{ resolver: "user.profile", key: "user:1" }],
+    });
+
+    expect(result.partial).toBe(false);
+    expect(result.results["user:1"]?.data).toEqual({ id: "user:1" });
+    expect(resolver.resolve).toHaveBeenCalledTimes(2);
+  });
+
+  it("fails fast on non-retryable resolver errors when a retry predicate is provided", async () => {
+    const telemetry = {
+      metric: vi.fn(),
+      error: vi.fn(),
+      trace: vi.fn(),
+    };
+    const resolver = {
+      resolve: vi.fn(async (): Promise<never> => {
+        const error = new Error("validation failed");
+        Object.assign(error, { retryable: false });
+        throw error;
+      }),
+    };
+
+    const gateway = new GraphGateway({
+      resolver,
+      telemetry,
+      timeoutMs: 5,
+      retryAttempts: 3,
+      retryBudgetMs: 100,
+      retryBackoffMs: 0,
+      isRetryableError: (error) =>
+        typeof error === "object"
+        && error !== null
+        && "retryable" in error
+        && Boolean((error as { retryable?: boolean }).retryable),
+    });
+
+    const result = await gateway.execute({
+      requests: [{ resolver: "user.profile", key: "user:1" }],
+    });
+
+    expect(result.partial).toBe(true);
+    expect(result.errors[0]?.message).toContain("validation failed");
+    expect(resolver.resolve).toHaveBeenCalledTimes(1);
+    expect(telemetry.metric).not.toHaveBeenCalledWith(
+      expect.objectContaining({ name: "graph.resolve.retry" }),
+    );
+  });
 });
