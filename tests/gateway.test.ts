@@ -280,7 +280,9 @@ describe("GraphGateway", () => {
     const gateway = new GraphGateway({
       resolver: {
         async resolve() {
-          throw new Error("transient");
+          const error = new Error("transient");
+          Object.assign(error, { transient: true });
+          throw error;
         },
       },
       telemetry,
@@ -298,6 +300,72 @@ describe("GraphGateway", () => {
     expect(telemetry.metric).toHaveBeenCalledWith(
       expect.objectContaining({ name: "graph.resolve.backoff_ms", value: 1 }),
     );
+  });
+
+  it("retries transient failures by default", async () => {
+    const telemetry = {
+      metric: vi.fn(),
+      error: vi.fn(),
+      trace: vi.fn(),
+    };
+    const resolver = {
+      resolve: vi.fn(async () => {
+        const error = new Error("retryable failure");
+        Object.assign(error, { transient: true });
+        throw error;
+      }),
+    };
+
+    const gateway = new GraphGateway({
+      resolver,
+      telemetry,
+      timeoutMs: 5,
+      retryAttempts: 2,
+      retryBudgetMs: 100,
+      retryBackoffMs: 0,
+    });
+
+    const result = await gateway.execute({
+      requests: [{ resolver: "user.profile", key: "user:1" }],
+    });
+
+    expect(resolver.resolve).toHaveBeenCalledTimes(2);
+    expect(result.partial).toBe(true);
+    expect(result.errors[0]?.message).toContain("retryable failure");
+    expect(telemetry.metric).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "graph.resolve.retry",
+        tags: expect.objectContaining({ attempt: "1" }),
+      }),
+    );
+    expect(telemetry.metric).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "graph.upstream.error", value: 1 }),
+    );
+  });
+
+  it("does not retry non-transient failures by default", async () => {
+    const resolver = {
+      resolve: vi.fn(async () => {
+        throw new Error("permanent failure");
+      }),
+    };
+
+    const gateway = new GraphGateway({
+      resolver,
+      timeoutMs: 5,
+      retryAttempts: 3,
+      retryBudgetMs: 100,
+      retryBackoffMs: 0,
+    });
+
+    const result = await gateway.execute({
+      requests: [{ resolver: "user.profile", key: "user:1" }],
+    });
+
+    expect(result.partial).toBe(true);
+    expect(result.errors[0]?.message).toContain("permanent failure");
+    expect(resolver.resolve).toHaveBeenCalledTimes(1);
+    expect(result.errors[0]?.retryable).toBe(true);
   });
 
   it("retries transient failures when the caller marks them retryable", async () => {

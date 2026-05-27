@@ -101,7 +101,7 @@ npm run build
   - `retryBudgetMs`
   - `retryBackoffMs`
   - `retryJitterRatio`
-  - `isRetryableError` for transient-only retry enforcement when callers need to fail fast on non-retryable upstream errors
+  - `isRetryableError` to control retryability when callers want explicit override
 - Circuit breaker hooks:
   - `canRequest`
   - `onSuccess`
@@ -113,7 +113,7 @@ npm run build
   - `graph.resolve.backoff_ms`
   - `graph.upstream.error`
 - Runtime query payloads are validated at execution boundary (`isGraphQuery`).
-- Default behavior remains backwards compatible: if `isRetryableError` is omitted, gateway retries continue to apply to resolver failures until the retry budget or attempt cap is exhausted.
+- Default behavior is transient-only: without a custom `isRetryableError`, the gateway retries only errors marked as retryable via `error.transient` (or `error.retryable`) and fails fast on other failures.
 
 ---
 

@@ -100,7 +100,26 @@ export class GraphGateway {
     this.retryBudgetMs = Math.max(this.timeoutMs, options.retryBudgetMs ?? this.timeoutMs * this.retryAttempts);
     this.retryBackoffMs = Math.max(0, options.retryBackoffMs ?? 20);
     this.retryJitterRatio = Math.min(1, Math.max(0, options.retryJitterRatio ?? 0.2));
-    this.isRetryableError = options.isRetryableError ?? (() => true);
+    this.isRetryableError =
+      options.isRetryableError ??
+      ((error) => {
+        if (error && typeof error === "object") {
+          const candidate = error as {
+            transient?: boolean;
+            retryable?: boolean;
+          };
+
+          if (typeof candidate.transient === "boolean") {
+            return candidate.transient;
+          }
+
+          if (typeof candidate.retryable === "boolean") {
+            return candidate.retryable;
+          }
+        }
+
+        return false;
+      });
     this.random = options.random ?? (() => Math.random());
     this.maxFanout = Math.max(1, options.maxFanout ?? 4);
     this.circuitBreaker = options.circuitBreaker;
