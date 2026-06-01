@@ -368,6 +368,53 @@ describe("GraphGateway", () => {
     expect(result.errors[0]?.retryable).toBe(true);
   });
 
+  it("bounds retry amplification under failure injection across a request batch", async () => {
+    const telemetry = {
+      metric: vi.fn(),
+      error: vi.fn(),
+      trace: vi.fn(),
+    };
+    const resolver = {
+      resolve: vi.fn(async () => {
+        const error = new Error("failure injection");
+        Object.assign(error, { transient: true });
+        throw error;
+      }),
+    };
+    const requestCount = 5;
+    const retryAttempts = 3;
+
+    const gateway = new GraphGateway({
+      resolver,
+      telemetry,
+      timeoutMs: 5,
+      retryAttempts,
+      retryBudgetMs: 100,
+      retryBackoffMs: 0,
+      maxFanout: 4,
+    });
+
+    await gateway.execute({
+      requests: Array.from({ length: requestCount }, (_value, index) => ({
+        resolver: "user.profile",
+        key: `user:${index}`,
+      })),
+    });
+
+    expect(resolver.resolve).toHaveBeenCalledTimes(requestCount * retryAttempts);
+    expect(telemetry.metric).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "graph.resolve.retry",
+      }),
+    );
+    expect(
+      telemetry.metric.mock.calls.filter((call) => {
+        const event = call[0];
+        return event.name === "graph.resolve.retry";
+      }),
+    ).toHaveLength(requestCount * (retryAttempts - 1));
+  });
+
   it("does not retry when default error object marks transient=false", async () => {
     const resolver = {
       resolve: vi.fn(async () => {

@@ -16,6 +16,7 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 - **Fixed**
   - Changed default retry behavior to enforce transient-only retries (`error.transient`/`error.retryable`) so non-transient resolver failures fail fast by default.
+  - Added a failure-injection regression test suite to cap per-request retry amplification under transient burst conditions.
 
 - **Security**
   - (placeholder)
