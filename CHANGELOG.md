@@ -12,6 +12,20 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - (placeholder)
 
 - **Changed**
+  - (placeholder)
+
+- **Fixed**
+  - (placeholder)
+
+- **Security**
+  - (placeholder)
+
+## [0.1.7] - 2026-06-01
+
+- **Added**
+  - (placeholder)
+
+- **Changed**
   - Added opt-in `isRetryableError` support so callers can restrict GraphGateway retries to transient failures while keeping the existing retry-budget/backoff controls.
 
 - **Fixed**
@@ -114,3 +128,4 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 [0.1.4]: https://github.com/Plasius-LTD/graph-gateway-core/releases/tag/v0.1.4
 [0.1.5]: https://github.com/Plasius-LTD/graph-gateway-core/releases/tag/v0.1.5
 [0.1.6]: https://github.com/Plasius-LTD/graph-gateway-core/releases/tag/v0.1.6
+[0.1.7]: https://github.com/Plasius-LTD/graph-gateway-core/releases/tag/v0.1.7
