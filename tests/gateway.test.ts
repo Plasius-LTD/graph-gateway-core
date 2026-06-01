@@ -420,6 +420,31 @@ describe("GraphGateway", () => {
     expect(resolver.resolve).toHaveBeenCalledTimes(2);
   });
 
+  it("does not retry primitive default errors", async () => {
+    const resolver = {
+      resolve: vi.fn(async () => {
+        // Intentionally throw a non-object to exercise the non-boolean branch.
+        throw "primitive failure";
+      }),
+    };
+
+    const gateway = new GraphGateway({
+      resolver,
+      timeoutMs: 5,
+      retryAttempts: 3,
+      retryBudgetMs: 100,
+      retryBackoffMs: 0,
+    });
+
+    const result = await gateway.execute({
+      requests: [{ resolver: "user.profile", key: "user:1" }],
+    });
+
+    expect(result.partial).toBe(true);
+    expect(result.errors[0]?.message).toContain("Unknown gateway error");
+    expect(resolver.resolve).toHaveBeenCalledTimes(1);
+  });
+
   it("stops retrying when the retry budget is exhausted", async () => {
     let nowTicks = 0;
     const now = vi.fn(() => {
