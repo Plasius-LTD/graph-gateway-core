@@ -12,6 +12,20 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
   - (placeholder)
 
 - **Changed**
+  - (placeholder)
+
+- **Fixed**
+  - (placeholder)
+
+- **Security**
+  - (placeholder)
+
+## [0.1.11] - 2026-06-28
+
+- **Added**
+  - (placeholder)
+
+- **Changed**
   - Refreshed development dependency baselines to `@types/node@26.0.1`, `@typescript-eslint/*@8.62.0`, and `eslint@10.6.0`.
 
 - **Fixed**
@@ -159,3 +173,4 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 [0.1.7]: https://github.com/Plasius-LTD/graph-gateway-core/releases/tag/v0.1.7
 [0.1.9]: https://github.com/Plasius-LTD/graph-gateway-core/releases/tag/v0.1.9
 [0.1.10]: https://github.com/Plasius-LTD/graph-gateway-core/releases/tag/v0.1.10
+[0.1.11]: https://github.com/Plasius-LTD/graph-gateway-core/releases/tag/v0.1.11
