@@ -8,6 +8,10 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+- Restore trusted-push CI to the approved quarantined self-hosted Linux/X64 group,
+  with bounded jobs, credential-free checkout, clean lockfile installation and
+  final-package admission; preserve hosted exact-main npm OIDC publication.
+
 - **Added**
   - (placeholder)
 
