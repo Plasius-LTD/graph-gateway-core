@@ -8,6 +8,20 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+- **Added**
+  - (placeholder)
+
+- **Changed**
+  - (placeholder)
+
+- **Fixed**
+  - (placeholder)
+
+- **Security**
+  - (placeholder)
+
+## [0.1.18] - 2026-10-21
+
 - Restore trusted-push CI to the approved quarantined self-hosted Linux/X64 group,
   with bounded jobs, credential-free checkout, clean lockfile installation and
   final-package admission; preserve hosted exact-main npm OIDC publication.
@@ -289,3 +303,4 @@ The format is based on **[Keep a Changelog](https://keepachangelog.com/en/1.1.0/
 [0.1.15]: https://github.com/Plasius-LTD/graph-gateway-core/releases/tag/v0.1.15
 [0.1.16]: https://github.com/Plasius-LTD/graph-gateway-core/releases/tag/v0.1.16
 [0.1.17]: https://github.com/Plasius-LTD/graph-gateway-core/releases/tag/v0.1.17
+[0.1.18]: https://github.com/Plasius-LTD/graph-gateway-core/releases/tag/v0.1.18
