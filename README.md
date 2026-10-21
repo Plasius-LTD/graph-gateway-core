@@ -129,11 +129,26 @@ Licensed under the [Apache-2.0 License](./LICENSE).
 ## Release integrity
 
 CI keeps the administrative contributor registry outside Git and npm package
-artifacts using exact, case-normalised path checks. CI runs on approved
-GitHub-hosted runners for same-repository pull requests and `main`, with
-package-manager cache finalization disabled; fork PR code is denied.
+artifacts using exact, case-normalised path checks. Both CI jobs use the literal
+`Public CI - Quarantined` group and `[self-hosted, Linux, X64]` labels for trusted
+repository pushes only. Fork and PR events cannot schedule self-hosted work.
+The group independently restricts repositories and workflow refs; a reviewed
+maintainer branch needs a temporary explicit workflow admission, removed after
+delivery. Missing capacity fails closed with no hosted fallback. Checkout does
+not persist credentials, package-manager cache finalization stays disabled,
+and ordinary `npm ci` retains the committed lockfile. Bounded jobs preserve
+lint, types, runtime audit, build, 80% line coverage and final pack checks.
 Publication uses the GitHub-hosted `production` job with Node 24 and a pinned
 npm 11.6.2 client. It is token-free and proceeds only while the prepared SHA
 is the exact `main` head after successful push-triggered CI. Do not dispatch CD
-until the npm trusted-publisher binding is verified.
+until the npm trusted-publisher binding is verified. Use the approved two-phase
+`cd.yml` prepare/publish path on `main` with a fresh version; verify exact-main
+CI, immutable registry bytes/provenance and the GitHub release before completion.
+
+Feature `platform.public-artifact-integrity.enabled` governs staged public
+restoration. Enabled permits verified restoration; disabled pauses restoration;
+rollback disables the affected workflow/channel or removes its admission.
+Mandatory source/package admission remains enforced in all three states.
+No local override or capability is introduced. Never restore the prohibited
+administrative path during rollback. See [ADR-0005](docs/adrs/adr-0005-quarantined-push-ci.md).
 <!-- END PLASIUS RELEASE INTEGRITY -->
